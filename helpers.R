@@ -64,23 +64,48 @@ explorer <- function(datatable, dimensions_vector, yaxis) {
   n=TRUE
   start = 1
   
+  namestokeep = data.frame(matrix(nrow=nrow(datatable)))
+  column_names = colnames(datatable)
+  column_name_index = c()
+  
   while(n & (start+dimensions_vector[1] * dimensions_vector[2] - 1)<length(datatable)) {
     end = (start+dimensions_vector[1] * dimensions_vector[2] - 1)
+    
     for(i in start:end) {
       plot(datatable[i], yaxis, xlab = names(datatable[i]))
     }
     
-    start = start+dimensions_vector[1] * dimensions_vector[2]
+    keep = readline(prompt='Keep any? (T/F):' )
+    keep = as.logical(keep)
+    
+    if (keep) {
+      
+      #Read in a vector, add 'end' which will bump to correct index
+      whichone = readline(prompt ='Which one(s)? Enter vector. Order is (TL/TR/BL/BR)')
+      whichonestr = eval(parse(text = whichone))
+      whichonestr = whichonestr + start - 1
+      column_name_index = c(column_name_index, whichonestr)
+      newvec = datatable[,whichonestr]
+      namestokeep = cbind(namestokeep, newvec)
+      
+    }
     
     n <- readline(prompt="Continue? (T/F): ")
     n = as.logical(n)
     print(start:end)
     
-
+    start = start + dimensions_vector[1]*dimensions_vector[2]
   }
   
-  for(i in start:length(datatable)) {
-    plot(datatable[i], yaxis, xlab = names(datatable[i]))
+  ##Print last partial plots 
+  if (n) {
+    for(i in start:length(datatable)) {
+      plot(datatable[i], yaxis, xlab = names(datatable[i]))
+   }
+
   }
+  namestokeep = namestokeep[,-1]
+  colnames(namestokeep) = column_names[column_name_index]
+  return(namestokeep)
   
 }

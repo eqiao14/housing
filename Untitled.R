@@ -8,8 +8,12 @@ library(randomForest)
 library(xgboost)
 library(corrplot)
 
-train = read.csv('/Users/eqiao14/Desktop/Rpractice/housing/train.csv')
-test = read.csv('housing/test.csv')
+
+# train = read.csv('/Users/eqiao14/Desktop/Rpractice/housing/train.csv')
+# test = read.csv('housing/test.csv')
+
+train = read.csv("C:/Users/Edmund/Desktop/housing/train.csv")
+test = read.csv("C:/Users/Edmund/Desktop/housing/test.csv")
 
 head(train)
 attach(train)
