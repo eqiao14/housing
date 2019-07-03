@@ -7,6 +7,7 @@ library(boot)
 library(randomForest)
 library(xgboost)
 library(corrplot)
+library(rms)
 
 
 # train = read.csv('/Users/eqiao14/Desktop/Rpractice/housing/train.csv')
@@ -46,7 +47,7 @@ cor_numbers = cor(numbers_tbl, use="pairwise.complete.obs")
 cor_sorted = as.matrix(sort(cor_numbers[,'SalePrice'], decreasing = TRUE))
 
 #select only high corelations
-CorHigh <- names(which(apply(cor_sorted, 1, function(x) abs(x)>0.5)))
+CorHigh <- names(which(apply(cor_sorted, 1, function(x) abs(x)>0.3)))
 cor_numVar <- cor_numbers[CorHigh, CorHigh]
 
 corrplot.mixed(cor_numVar, tl.col="black", tl.pos = "lt")
@@ -91,6 +92,22 @@ par(mfrow=c(2,2))
 cats = train[,-numbers]
 
 plot(cats[1], xlab  =names(cats[1]))
+
+catsaleprice = explorer(cats, c(2,2), train$SalePrice)
+catsaleprice = cbind(catsaleprice, train$MiscFeature, train$SaleType, train$SaleCondition)
+colnames(catsaleprice)[colnames(catsaleprice)=="train$MiscFeature"] <- "MiscFeature"
+colnames(catsaleprice)[colnames(catsaleprice)=="train$SaleType"] <- "SaleType"
+colnames(catsaleprice)[colnames(catsaleprice)=="train$SaleCondition"] <- "SaleCondition"
+
+##Deal with categorical NAs
+summary(catsaleprice)
+catsaleprice$MasVnrType = replace_na_mode(catsaleprice$MasVnrType)
+
+##Test colinearity of categorical variables w/ vif function 
+
+attach(catsaleprice)
+
+test_model = glm(train$SalePrice)
 
 
 ##use split func from helpers 

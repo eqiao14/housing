@@ -37,13 +37,25 @@ getmode <- function(v) {
 
 replace_na_mode <- function (datatable) {
   
-  for (i in 1:nrow(datatable)) {
-    for (j in 1:ncol(datatable)) {
-      if(is.na(datatable[i,j])) {
-        datatable[i,j] = getmode(datatable[,j])
+  if(is.data.frame(datatable)) {
+    
+    for (i in 1:nrow(datatable)) {
+      for (j in 1:ncol(datatable)) {
+        if(is.na(datatable[i,j])) {
+          datatable[i,j] = getmode(datatable[,j])
+        }
       }
     }
+  } 
+  else {
+    for (i in 1:length(datatable)) {
+      if(is.na(datatable[i])) {
+        datatable[i] = getmode(datatable)
+      }
+    }  
   }
+  
+
   return(datatable)
 }
 
@@ -107,5 +119,20 @@ explorer <- function(datatable, dimensions_vector, yaxis) {
   namestokeep = namestokeep[,-1]
   colnames(namestokeep) = column_names[column_name_index]
   return(namestokeep)
+  
+}
+
+split_data_table <- function (datatable) {
+  
+  holder = data.frame(matrix(nrow=nrow(datatable)))
+  
+  for (i in 2:ncol(datatable)) {
+    
+    split = split(datatable[,i])
+    holder = cbind(holder, split)
+
+  }
+  
+  return(holder)
   
 }
