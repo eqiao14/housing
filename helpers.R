@@ -124,15 +124,20 @@ explorer <- function(datatable, dimensions_vector, yaxis) {
 
 split_data_table <- function (datatable) {
   
+  #creates data frame w/ exact number of empty rows as input table
   holder = data.frame(matrix(nrow=nrow(datatable)))
+  names = colnames(datatable)
   
-  for (i in 2:ncol(datatable)) {
+  for (i in 1:ncol(datatable)) {
+    if (class(datatable[,i]) == 'factor') {
+      split = split(datatable[,i])  ##new data table w/ split 
+      holder = cbind(holder, split)
+    } else {
+      holder = cbind(holder,datatable[,i]) ##numerical cols will just be added in as is
+      colnames(holder)[i+1] = names[i] ##have to offset the colname bc of the initial NA col
+      
+    }
     
-    split = split(datatable[,i])
-    holder = cbind(holder, split)
-
   }
-  
-  return(holder)
-  
+  return(holder[,-1]) ##gets rid of the initial column of NAs during intiation 
 }

@@ -8,13 +8,14 @@ library(randomForest)
 library(xgboost)
 library(corrplot)
 library(rms)
+library(car) 
 
 
-# train = read.csv('/Users/eqiao14/Desktop/Rpractice/housing/train.csv')
-# test = read.csv('housing/test.csv')
+train = read.csv('/Users/eqiao14/Desktop/Rpractice/housing/train.csv')
+test = read.csv('test.csv')
 
-train = read.csv("C:/Users/Edmund/Desktop/housing/train.csv")
-test = read.csv("C:/Users/Edmund/Desktop/housing/test.csv")
+# train = read.csv("C:/Users/Edmund/Desktop/housing/train.csv")
+# test = read.csv("C:/Users/Edmund/Desktop/housing/test.csv")
 
 head(train)
 attach(train)
@@ -51,6 +52,8 @@ CorHigh <- names(which(apply(cor_sorted, 1, function(x) abs(x)>0.3)))
 cor_numVar <- cor_numbers[CorHigh, CorHigh]
 
 corrplot.mixed(cor_numVar, tl.col="black", tl.pos = "lt")
+
+numsaleprice = numbers_tbl[CorHigh]
 
 # ###Convert pool area to binary###
 # 
@@ -99,15 +102,76 @@ colnames(catsaleprice)[colnames(catsaleprice)=="train$MiscFeature"] <- "MiscFeat
 colnames(catsaleprice)[colnames(catsaleprice)=="train$SaleType"] <- "SaleType"
 colnames(catsaleprice)[colnames(catsaleprice)=="train$SaleCondition"] <- "SaleCondition"
 
-##Deal with categorical NAs
+##Deal with categorical NAs, mostly replacing w/ mode or deleting if majority NA
 summary(catsaleprice)
 catsaleprice$MasVnrType = replace_na_mode(catsaleprice$MasVnrType)
+catsaleprice$BsmtCond = replace_na_mode(catsaleprice$BsmtCond)
+catsaleprice$BsmtQual = replace_na_mode(catsaleprice$BsmtQual)
+catsaleprice$BsmtFinType1 = replace_na_mode(catsaleprice$BsmtFinType1)
+catsaleprice$BsmtFinType2 = replace_na_mode(catsaleprice$BsmtFinType2)
+catsaleprice$BsmtExposure = replace_na_mode(catsaleprice$BsmtExposure)
+catsaleprice$Electrical = replace_na_mode(catsaleprice$Electrical)
+catsaleprice$GarageType = replace_na_mode(catsaleprice$GarageType)
+catsaleprice$GarageCond = replace_na_mode(catsaleprice$GarageCond)
+catsaleprice$GarageQual = replace_na_mode(catsaleprice$GarageQual)
+catsaleprice$GarageFinish = replace_na_mode(catsaleprice$GarageFinish)
+catsaleprice$Alley=NULL
+catsaleprice$Utilities=NULL
+catsaleprice$FireplaceQu = NULL
+catsaleprice$PoolQC = NULL
+
+levels = levels(catsaleprice$Fence)
+levels[length(catsaleprice$Fence) + 1] <- "None"
+
+# refactor Species to include "None" as a factor level
+# and replace NA with "None"
+catsaleprice$Fence = factor(catsaleprice$Fence, levels = levels)
+catsaleprice$Fence[is.na(catsaleprice$Fence)] = "None"
+
+levels = levels(catsaleprice$MiscFeature)
+levels[length(catsaleprice$MiscFeature) + 1] <- "None"
+
+# refactor Species to include "None" as a factor level
+# and replace NA with "None"
+catsaleprice$MiscFeature = factor(catsaleprice$MiscFeature, levels = levels)
+catsaleprice$MiscFeature[is.na(catsaleprice$MiscFeature)] = "None"
+
+
+##Replace basement NAs w/ other
+# catsaleprice$BsmtCond[which(is.na(catsaleprice$BsmtCond))] = as.factor('other')
 
 ##Test colinearity of categorical variables w/ vif function 
 
-attach(catsaleprice)
+vif_model = lm(train$SalePrice~., data=catsaleprice)
 
-test_model = glm(train$SalePrice)
+###original model shows perfect colinearlity b/w Exterior1st and Exterior2nd 
+###Deleting Exterior1st
+catsaleprice$Exterior1st = NULL
+vif_model = lm(train$SalePrice~., data=catsaleprice)
+car::vif(vif_model)
+
+###Condition1 = 8, KitchenQual = 8.2, Garagetype = 7.4
+catsaleprice$Condition1 = NULL; catsaleprice$KitchenQual = NULL; catsaleprice$GarageType = NULL
+
+##combine numericals w/ categoricals 
+
+combined = cbind(numsaleprice,catsaleprice)
+
+###Rerun vif w/ whole model 
+vif_model = lm(combined$SalePrice~., data = combined)
+alias(vif_model)
+
+###Electrical is perfect multicolinear 
+combined$Electrical = NULL
+vif_model = lm(combined$SalePrice~., data = combined)
+car::vif(vif_model)
+
+###TotalBsmtSF = 8.7, Condition2 = 8.5, RoofMat1 = 9.4, Heating = 7.3
+combined$TotalBsmtSF = NULL; combined$Condition2 = NULL; combined$RoofMatl = NULL; combined$Heating = NULL
+
+attach(combined)
+combined = split_data_table(combined)
+
 
 
 ##use split func from helpers 
