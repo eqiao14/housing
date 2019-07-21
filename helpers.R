@@ -59,6 +59,30 @@ replace_na_mode <- function (datatable) {
   return(datatable)
 }
 
+replace_na_avg <- function (datatable) {
+  
+  if(is.data.frame(datatable)) {
+    
+    for (i in 1:nrow(datatable)) {
+      for (j in 1:ncol(datatable)) {
+        if(is.na(datatable[i,j])) {
+          datatable[i,j] = mean(datatable[,j])
+        }
+      }
+    }
+  } 
+  else {
+    for (i in 1:length(datatable)) {
+      if(is.na(datatable[i])) {
+        datatable[i] = mean(datatable)
+      }
+    }  
+  }
+  
+  
+  return(datatable)
+}
+
 replace_any_mode <- function (datatable, thingtoreplace) {
   
   for (i in 1:length(datatable)) {

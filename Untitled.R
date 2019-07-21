@@ -140,39 +140,23 @@ catsaleprice$MiscFeature[is.na(catsaleprice$MiscFeature)] = "None"
 ##Replace basement NAs w/ other
 # catsaleprice$BsmtCond[which(is.na(catsaleprice$BsmtCond))] = as.factor('other')
 
+
 ##Test colinearity of categorical variables w/ vif function 
-
-vif_model = lm(train$SalePrice~., data=catsaleprice)
-
-###original model shows perfect colinearlity b/w Exterior1st and Exterior2nd 
-###Deleting Exterior1st
-catsaleprice$Exterior1st = NULL
-vif_model = lm(train$SalePrice~., data=catsaleprice)
-car::vif(vif_model)
-
-###Condition1 = 8, KitchenQual = 8.2, Garagetype = 7.4
-catsaleprice$Condition1 = NULL; catsaleprice$KitchenQual = NULL; catsaleprice$GarageType = NULL
-
-##combine numericals w/ categoricals 
 
 combined = cbind(numsaleprice,catsaleprice)
 
-###Rerun vif w/ whole model 
-vif_model = lm(combined$SalePrice~., data = combined)
+vif_model = lm(combined$SalePrice~., data=combined)
 alias(vif_model)
-
-###Electrical is perfect multicolinear 
+###ElectrcalMix is perf colinear, will remove
 combined$Electrical = NULL
-vif_model = lm(combined$SalePrice~., data = combined)
+
+vif_model = lm(combined$SalePrice~., data=combined)
 car::vif(vif_model)
 
-###TotalBsmtSF = 8.7, Condition2 = 8.5, RoofMat1 = 9.4, Heating = 7.3
+##VIF cats to remove: TotalBsmtSF = 8.7, Condition2 = 8.5, RoofMat1 = 9.4, Heating = 7.3
 combined$TotalBsmtSF = NULL; combined$Condition2 = NULL; combined$RoofMatl = NULL; combined$Heating = NULL
 
-attach(combined)
-combined = split_data_table(combined)
-
-
+################Comtinuing on in file xgboostpt2.R###############################
 
 ##use split func from helpers 
 detach(train)
