@@ -30,6 +30,8 @@ split <- function (datatable) {
 
 
 getmode <- function(v) {
+  ##take out NAs in case mode = NAs
+  v = na.omit(v)
   uniqv <- unique(v)
   return(uniqv[which.max(tabulate(match(v, uniqv)))])
   
@@ -38,7 +40,6 @@ getmode <- function(v) {
 replace_na_mode <- function (datatable) {
   
   if(is.data.frame(datatable)) {
-    
     for (i in 1:nrow(datatable)) {
       for (j in 1:ncol(datatable)) {
         if(is.na(datatable[i,j])) {
@@ -61,24 +62,24 @@ replace_na_mode <- function (datatable) {
 
 replace_na_avg <- function (datatable) {
   
-  if(is.data.frame(datatable)) {
-    
-    for (i in 1:nrow(datatable)) {
-      for (j in 1:ncol(datatable)) {
-        if(is.na(datatable[i,j])) {
-          datatable[i,j] = mean(datatable[,j])
-        }
-      }
-    }
-  } 
-  else {
+  # if(is.data.frame(datatable)) {
+  #   
+  #   for (i in 1:nrow(datatable)) {
+  #     for (j in 1:ncol(datatable)) {
+  #       if(is.na(datatable[i,j])) {
+  #         datatable[i,j] = mean(datatable[,j])
+  #       }
+  #     }
+  #   }
+  # } 
+  # else {
+  na = which(is.na(datatable))
     for (i in 1:length(datatable)) {
       if(is.na(datatable[i])) {
-        datatable[i] = mean(datatable)
+        datatable[i] = mean(datatable[-c(na)])
       }
     }  
-  }
-  
+  # }
   
   return(datatable)
 }
@@ -159,9 +160,13 @@ split_data_table <- function (datatable) {
     } else {
       holder = cbind(holder,datatable[,i]) ##numerical cols will just be added in as is
       colnames(holder)[i+1] = names[i] ##have to offset the colname bc of the initial NA col
-      
     }
-    
   }
   return(holder[,-1]) ##gets rid of the initial column of NAs during intiation 
+}
+
+'%!in%' <- function(x,y) {
+  
+  !('%in%'(x,y))
+  
 }

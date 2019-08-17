@@ -48,7 +48,7 @@ cor_numbers = cor(numbers_tbl, use="pairwise.complete.obs")
 cor_sorted = as.matrix(sort(cor_numbers[,'SalePrice'], decreasing = TRUE))
 
 #select only high corelations
-CorHigh <- names(which(apply(cor_sorted, 1, function(x) abs(x)>0.5)))
+CorHigh <- names(which(apply(cor_sorted, 1, function(x) abs(x)>0.3)))
 cor_numVar <- cor_numbers[CorHigh, CorHigh]
 
 corrplot.mixed(cor_numVar, tl.col="black", tl.pos = "lt")
@@ -63,9 +63,6 @@ par(mfrow=c(2,2))
 cats = train[,-numbers]
 
 plot(cats[1], xlab  =names(cats[1]))
-
-###saving old catsaleprice
-# catsaleprice_holder = catsaleprice
 
 catsaleprice = explorer(cats, c(2,2), train$SalePrice)
 catsaleprice = cbind(catsaleprice, train$MiscFeature, train$SaleType, train$SaleCondition)
@@ -110,71 +107,79 @@ levels[length(catsaleprice$MiscFeature) + 1] <- "None"
 catsaleprice$MiscFeature = factor(catsaleprice$MiscFeature, levels = levels)
 catsaleprice$MiscFeature[is.na(catsaleprice$MiscFeature)] = "None"
 
+###Categorize the years 
 
-##Replace basement NAs w/ other
-# catsaleprice$BsmtCond[which(is.na(catsaleprice$BsmtCond))] = as.factor('other')
+# numsaleprice$YearBuilt = as.factor(numsaleprice$YearBuilt)
+# numsaleprice$YearRemodAdd = as.factor(numsaleprice$YearRemodAdd)
+# numsaleprice$GarageYrBlt = as.factor(numsaleprice$GarageYrBlt)
 
+###Create new binary vars to capture year remodel and basement built 
+
+numsaleprice = numbers_tbl[CorHigh]; test = read.csv('test.csv')
+
+
+Remodeled = which(numsaleprice$YearRemodAdd>numsaleprice$YearBuilt)
+numsaleprice$Remodeled = 0; 
+numsaleprice$Remodeled[Remodeled] = 1
+#replace yearbuilt with the most recent year remodeled
+numsaleprice$YearBuilt = numsaleprice$YearBuilt + (numsaleprice$YearRemodAdd - numsaleprice$YearBuilt)
+numsaleprice$YearRemodAdd = NULL
+numsaleprice$GarageAdded = ifelse(numsaleprice$GarageYrBlt > train$YearBuilt, 1,0)
+numsaleprice$GarageAdded = ifelse(is.na(numsaleprice$GarageYrBlt), 0, numsaleprice$GarageAdded)
+numsaleprice$GarageYrBlt = NULL
+
+#numsaleprice$YearBuilt = as.factor(numsaleprice$YearBuilt)
+numsaleprice$GarageAdded = as.logical(numsaleprice$GarageAdded)
+numsaleprice$Remodeled = as.logical(numsaleprice$Remodeled)
+
+###YearBuilt messing w/ splitdatatable function
+###Spliting it up into separate vector fixes problem
+YearBuilt = numsaleprice$YearBuilt; numsaleprice = numsaleprice[,-which(colnames(numsaleprice) == 'YearBuilt')]
 
 ##Test colinearity of categorical variables w/ vif function 
-
-# ##Introduce scaled numbers 07/21/19#####
-# 
-# numsaleprice = as.data.frame(cbind(train$SalePrice,train$YearBuilt, train$YearRemodAdd, train$GarageYrBlt,
-#                      scale(numsaleprice[-c(1,10:12)])))
-# 
-# colnames(numsaleprice)[1] <- 'SalePrice'; colnames(numsaleprice)[2] <- 'YearBuilt'
-# colnames(numsaleprice)[3] <- 'YearRemodAdd'; colnames(numsaleprice)[4] <- 'GarageYrBlt'
-
-# ###Replace some NAs
-# 
-# numsaleprice$GarageYrBlt = replace_na_mode(numsaleprice$GarageYrBlt)
-# numsaleprice$MasVnrArea = replace_na_avg(numsaleprice$MasVnrArea)
-# numsaleprice$LotFrontage = NULL
-
-
-#YearBuilt = numsaleprice$YearBuilt; numsaleprice = numsaleprice[,-which(colnames(numsaleprice) == 'YearBuilt')]
-
-
-combined = cbind(numsaleprice,catsaleprice)
+##xgboost "immune" to multicollinearity, but will use to help 
+##reduce redundancy 
+combined = cbind(numsaleprice,catsaleprice, YearBuilt)
 
 vif_model = lm(combined$SalePrice~., data=combined)
 alias(vif_model)
+
 ###ElectrcalMix is perf colinear, will remove
 combined$Electrical = NULL
 
 vif_model = lm(combined$SalePrice~., data=combined)
 car::vif(vif_model)
 
-##VIF cats to remove: TotalBsmtSF = 8.7, Condition2 = 8.5, RoofMat1 = 9.4, Heating = 7.3
-combined$GarageArea = NULL; 
 combined$TotalBsmtSF = NULL; combined$Condition2 = NULL; combined$RoofMatl = NULL; combined$Heating = NULL
 
 combined = split_data_table(combined)
 
-#####unscaled model########
+#######Testing
 
-##Create the test data with same cats
-
-##scaling insertion 07/21/19#####
-# numnames = colnames(numsaleprice); numnames = numnames[-1]
-# testnumscale = test[numnames]
-# testnumscale = as.data.frame(cbind(test$YearBuilt, test$YearRemodAdd, test$GarageYrBlt,
-#                                    scale(testnumscale[-c(9:11)])))
-# 
-# colnames(testnumscale)[1] <- 'YearBuilt'
-# colnames(testnumscale)[2] <- 'YearRemodAdd'; colnames(testnumscale)[3] <- 'GarageYrBlt'
-# 
-# tested = cbind(testnumscale,test[,colnames(catsaleprice)])
-# 
-trainnames = colnames(cbind(numsaleprice, catsaleprice))
+trainnames = colnames(cbind(numsaleprice, catsaleprice, YearBuilt))
 trainnames = trainnames[-1]
 
+Remodeled = which(test$YearRemodAdd>test$YearBuilt)
+test$Remodeled = 0; 
+test$Remodeled[Remodeled] = 1
+#replace yearbuilt with the most recent year remodeled
+test$YearBuilt = test$YearBuilt + (test$YearRemodAdd - test$YearBuilt)
+test$YearRemodAdd = NULL
+test$GarageAdded = ifelse(test$GarageYrBlt > test$YearBuilt, 1,0)
+test$GarageAdded = ifelse(is.na(test$GarageYrBlt), 0, test$GarageAdded)
+test$GarageYrBlt = NULL
+
+#test$YearBuilt = as.factor(test$YearBuilt)
+test$GarageAdded = as.logical(test$GarageAdded)
+test$Remodeled = as.logical(test$Remodeled)
+
+YearBuilt = test$YearBuilt; test = test[,-which(colnames(test) == 'YearBuilt')]
 #YearBuilt = as.factor(YearBuilt)
 
-tested = cbind(test[,trainnames])
-tested$Electrical = NULL; tested$GarageArea = NULL; 
-tested$TotalBsmtSF = NULL; tested$Condition2 = NULL; tested$RoofMatl = NULL; tested$Heating = NULL
-summary(tested)
+tested = cbind(test[,trainnames[-which(trainnames == 'YearBuilt')]], YearBuilt)
+tested$TotalBsmtSF = NULL; tested$Condition2 = NULL; tested$RoofMatl = NULL; tested$Heating = NULL 
+tested$Electrical = NULL;
+#summary(tested)
 
 levels = levels(tested$Fence)
 levels[length(tested$Fence) + 1] <- "None"
@@ -202,15 +207,10 @@ tested$GarageCond = replace_na_mode(tested$GarageCond)
 tested$GarageQual = replace_na_mode(tested$GarageQual)
 tested$GarageFinish = replace_na_mode(tested$GarageFinish)
 tested$GarageCars = replace_na_mode(tested$GarageCars)
-tested$GarageArea = replace_na_mode(tested$GarageArea) ##should have replaced w/ mean but it was only 1 value
-tested$GarageYrBlt = replace_na_mode(tested$GarageYrBlt)
+tested$GarageArea = replace_na_avg(tested$GarageArea) 
+
 tested$MasVnrArea = replace_na_avg(tested$MasVnrArea)
-
 tested$BsmtFinSF1 = replace_na_avg(tested$BsmtFinSF1)
-
-tested$GarageType = replace_na_mode(tested$GarageType)
-tested$KitchenQual = replace_na_mode(tested$KitchenQual)
-tested$Exterior1st = replace_na_mode(tested$Exterior1st)
 tested$TotalBsmtSF = replace_na_avg(tested$TotalBsmtSF)
 
 ##too many NAs in LotFrontage
@@ -219,9 +219,9 @@ tested$MSZoning = replace_na_mode(tested$MSZoning)
 tested$Exterior2nd = replace_na_mode(tested$Exterior2nd)
 tested$Functional = replace_na_mode(tested$Functional)
 tested$SaleType = replace_na_mode(tested$SaleType)
-
-###MoSold was later added in the catsaleprice, must change to factor here too
 tested$MoSold = as.factor(tested$MoSold)
+
+tested_holder = tested
 tested = split_data_table(tested)
 
 ####Make any illegal names legal
@@ -233,32 +233,30 @@ names(tested) = make.names(names(tested))
 trainingnames = sort(names(combined)); testingnames = sort(names(tested))
 trainingnames[which(trainingnames %!in% testingnames)]
 
-# BrkSide = rep(0,1459)
-# ClyTile = rep(0,1459)
-# Floor = rep(0,1459)
-# Membran = rep(0,1459)
-# Metal = rep(0,1459)
-# OthW = rep(0,1459)
-# Roll = rep(0,1459)
-# RRAe = rep(0,1459)
-# RRAn = rep(0,1459)
-# RRNn = rep(0,1459)
-Ex.5 =rep(0,1459)
+ClyTile = rep(0,1459)
+#Ex.5 =rep(0,1459)
+Floor = rep(0,1459)
+Membran = rep(0,1459)
+Metal = rep(0,1459)
 Other = rep(0,1459)
+OthW = rep(0,1459)
+Roll = rep(0,1459)
+RRAe = rep(0,1459)
+RRAn = rep(0,1459)
+RRNn = rep(0,1459)
 TenC =rep(0,1459)
 X2.5Fin = rep(0,1459)
 SalePrice =rep(0,1459)
+Ex.4 = rep(0,1459)
+NWAmes = rep(0,1459)
+NAmes = rep(0,1460)
 
-Ex.3 = rep(0,1459)
-ImStucc.1 = rep(0,1459)
-RRAe.1 = rep(0,1459)
-RRAn.1 = rep(0,1459)
-RRNn.1 = rep(0,1459)
-Stone.2 = rep(0,1459)
 
-x = cbind(tested, Ex.5, Other, TenC, X2.5Fin, SalePrice)
 
-x = cbind(test, Ex.3, ImStucc.1, Other, RRAe.1, RRAn.1, RRNn.1, SalePrice, Stone.2, TenC, X2.5Fin)
+x = cbind(tested, Ex.5, Other, TenC, X2.5Fin, SalePrice, ClyTile, Floor, Membran,
+          Metal, OthW, Roll, RRAe, RRAn, RRNn)
+
+x = cbind(tested, Ex.5, Other, TenC, X2.5Fin, SalePrice, NWAmes)
 
 clean_test = as.matrix(x)
 
@@ -266,6 +264,8 @@ clean_train = as.matrix(combined)
 clean_test = as.matrix(tested)
 
 y = as.data.frame(clean_train)
+
+y = cbind(y, NAmes)
 
 ##Reordering dataframes
 x = x[,order(names(x))]
@@ -296,7 +296,7 @@ dtrain = xgb.DMatrix(data = clean_train, label = labels)
 dtest = xgb.DMatrix(data = clean_test)
 
 model <- xgboost(data = dtrain, # the data   
-                 nround = 500,  # max number of boosting iterations
+                 nround = 400,  # max number of boosting iterations
                  early_stopping_rounds = 5
 ) 
 
