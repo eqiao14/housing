@@ -1,4 +1,4 @@
-##### Random Forest practice ####
+##### XGBoost and Random Forest practice ####
 library(reshape2)
 library(ggplot2)
 library(boot)
